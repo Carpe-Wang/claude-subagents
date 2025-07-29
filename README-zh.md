@@ -197,11 +197,6 @@ $ ./claude-subagent-cn.sh -i
 - 改进现有模板
 - 报告错误或问题
 - 提出增强建议
-
-## 许可证
-
-本项目采用 MIT 许可证 - 详情请参阅 [LICENSE](LICENSE) 文件。
-
 ## 支持
 
 - 问题：[GitHub Issues](https://github.com/Carpe-Wang/claude-subagents/issues)
