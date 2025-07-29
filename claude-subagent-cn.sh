@@ -1584,61 +1584,96 @@ interactive_create() {
 
     list_templates
     echo ""
-    read -p "请选择模板类型 (1-12): " template_choice
-
-    case "$template_choice" in
-        1) template_type="code_reviewer" ;;
-        2) template_type="test_generator" ;;
-        3) template_type="documentation" ;;
-        4) template_type="security_analyst" ;;
-        5) template_type="performance_optimizer" ;;
-        6) template_type="api_designer" ;;
-        7) template_type="database_expert" ;;
-        8) template_type="devops_specialist" ;;
-        9) template_type="frontend_specialist" ;;
-        10) template_type="backend_specialist" ;;
-        11) template_type="markdown_generator" ;;
-        12) template_type="custom" ;;
-        *)
-            echo -e "${RED}错误: 无效的选择${NC}"
-            exit 1
-            ;;
-    esac
-
+    echo -e "${YELLOW}提示: 可以输入多个模板编号(用逗号分隔)来创建多个agents${NC}"
+    echo -e "${YELLOW}例如: 1,2,3 将创建code_reviewer、test_generator和documentation三种agent${NC}"
     echo ""
-    read -p "请输入Agent名称: " agent_name
+    read -p "请选择模板类型 (1-12，多个用逗号分隔): " template_choices
 
-    if [[ -z "$agent_name" ]]; then
-        echo -e "${RED}错误: Agent名称不能为空${NC}"
+    # 解析选择的模板
+    IFS=',' read -ra CHOICES <<< "$template_choices"
+    local templates=()
+    
+    for choice in "${CHOICES[@]}"; do
+        choice=$(echo "$choice" | xargs)  # 去除空格
+        case "$choice" in
+            1) templates+=("code_reviewer") ;;
+            2) templates+=("test_generator") ;;
+            3) templates+=("documentation") ;;
+            4) templates+=("security_analyst") ;;
+            5) templates+=("performance_optimizer") ;;
+            6) templates+=("api_designer") ;;
+            7) templates+=("database_expert") ;;
+            8) templates+=("devops_specialist") ;;
+            9) templates+=("frontend_specialist") ;;
+            10) templates+=("backend_specialist") ;;
+            11) templates+=("markdown_generator") ;;
+            12) templates+=("custom") ;;
+            *)
+                echo -e "${RED}警告: 无效的选择 '$choice'，已跳过${NC}"
+                ;;
+        esac
+    done
+    
+    if [[ ${#templates[@]} -eq 0 ]]; then
+        echo -e "${RED}错误: 没有有效的模板选择${NC}"
         exit 1
     fi
-
+    
     echo ""
-    echo "请选择Agent作用域:"
-    echo "1. 本地项目 (.claude/agents/)"
-    echo "2. 全局 (~/.claude/agents/)"
-    read -p "请选择 (1-2): " scope_choice
+    echo -e "${BLUE}将创建 ${#templates[@]} 个agents，使用以下模板:${NC}"
+    for template in "${templates[@]}"; do
+        echo "  - $template"
+    done
+    
+    local agents_created=0
+    local agents_failed=0
+    
+    for template_type in "${templates[@]}"; do
+        echo ""
+        echo -e "${BLUE}--- 创建 $template_type agent ---${NC}"
+        read -p "请输入Agent名称: " agent_name
 
-    case "$scope_choice" in
-        1) target_dir="$LOCAL_AGENTS_DIR" ;;
-        2) target_dir="$GLOBAL_AGENTS_DIR" ;;
-        *)
-            echo -e "${RED}错误: 无效的选择${NC}"
-            exit 1
-            ;;
-    esac
+        if [[ -z "$agent_name" ]]; then
+            echo -e "${RED}错误: Agent名称不能为空，跳过此agent${NC}"
+            ((agents_failed++))
+            continue
+        fi
 
+        echo "请选择Agent作用域:"
+        echo "1. 本地项目 (.claude/agents/)"
+        echo "2. 全局 (~/.claude/agents/)"
+        read -p "请选择 (1-2): " scope_choice
+
+        case "$scope_choice" in
+            1) target_dir="$LOCAL_AGENTS_DIR" ;;
+            2) target_dir="$GLOBAL_AGENTS_DIR" ;;
+            *)
+                echo -e "${RED}错误: 无效的选择，使用默认本地作用域${NC}"
+                target_dir="$LOCAL_AGENTS_DIR"
+                ;;
+        esac
+
+        echo -e "${YELLOW}正在生成Agent配置...${NC}"
+        if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ $agent_name 创建成功!${NC}"
+            echo -e "${BLUE}配置文件位置: $target_dir/${agent_name}.md${NC}"
+            ((agents_created++))
+        else
+            echo -e "${RED}❌ $agent_name 创建失败!${NC}"
+            ((agents_failed++))
+        fi
+    done
+    
     echo ""
-    echo -e "${YELLOW}正在生成Agent配置...${NC}"
-    generate_agent_config "$template_type" "$agent_name" "$target_dir"
-
-    echo ""
-    echo -e "${GREEN}✅ Agent创建成功!${NC}"
-    echo -e "${BLUE}配置文件位置: $target_dir/${agent_name}.md${NC}"
+    echo -e "${GREEN}========== 创建完成 ==========${NC}"
+    echo -e "${GREEN}成功: $agents_created 个agent${NC}"
+    if [[ $agents_failed -gt 0 ]]; then
+        echo -e "${RED}失败: $agents_failed 个agent${NC}"
+    fi
     echo ""
     echo -e "${YELLOW}接下来的步骤:${NC}"
     echo "1. 检查并自定义生成的配置文件"
-    echo "2. 在Claude Code中使用: @$agent_name 或让Claude自动调用"
+    echo "2. 在Claude Code中使用: @agent_name 或让Claude自动调用"
     echo "3. 根据需要调整agent的描述和工具权限"
 }
 

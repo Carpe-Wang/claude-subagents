@@ -1586,61 +1586,96 @@ interactive_create() {
 
     list_templates
     echo ""
-    read -p "Please select template type (1-12): " template_choice
-
-    case "$template_choice" in
-        1) template_type="code_reviewer" ;;
-        2) template_type="test_generator" ;;
-        3) template_type="documentation" ;;
-        4) template_type="security_analyst" ;;
-        5) template_type="performance_optimizer" ;;
-        6) template_type="api_designer" ;;
-        7) template_type="database_expert" ;;
-        8) template_type="devops_specialist" ;;
-        9) template_type="frontend_specialist" ;;
-        10) template_type="backend_specialist" ;;
-        11) template_type="markdown_generator" ;;
-        12) template_type="custom" ;;
-        *)
-            echo -e "${RED}Error: Invalid selection${NC}"
-            exit 1
-            ;;
-    esac
-
+    echo -e "${YELLOW}Tip: You can enter multiple template numbers (comma-separated) to create multiple agents${NC}"
+    echo -e "${YELLOW}Example: 1,2,3 will create code_reviewer, test_generator, and documentation agents${NC}"
     echo ""
-    read -p "Please enter agent name: " agent_name
+    read -p "Please select template type(s) (1-12, comma-separated for multiple): " template_choices
 
-    if [[ -z "$agent_name" ]]; then
-        echo -e "${RED}Error: Agent name cannot be empty${NC}"
+    # Parse selected templates
+    IFS=',' read -ra CHOICES <<< "$template_choices"
+    local templates=()
+    
+    for choice in "${CHOICES[@]}"; do
+        choice=$(echo "$choice" | xargs)  # Trim whitespace
+        case "$choice" in
+            1) templates+=("code_reviewer") ;;
+            2) templates+=("test_generator") ;;
+            3) templates+=("documentation") ;;
+            4) templates+=("security_analyst") ;;
+            5) templates+=("performance_optimizer") ;;
+            6) templates+=("api_designer") ;;
+            7) templates+=("database_expert") ;;
+            8) templates+=("devops_specialist") ;;
+            9) templates+=("frontend_specialist") ;;
+            10) templates+=("backend_specialist") ;;
+            11) templates+=("markdown_generator") ;;
+            12) templates+=("custom") ;;
+            *)
+                echo -e "${RED}Warning: Invalid choice '$choice', skipped${NC}"
+                ;;
+        esac
+    done
+    
+    if [[ ${#templates[@]} -eq 0 ]]; then
+        echo -e "${RED}Error: No valid template selections${NC}"
         exit 1
     fi
-
+    
     echo ""
-    echo "Please select agent scope:"
-    echo "1. Local project (.claude/agents/)"
-    echo "2. Global (~/.claude/agents/)"
-    read -p "Please select (1-2): " scope_choice
+    echo -e "${BLUE}Will create ${#templates[@]} agents using the following templates:${NC}"
+    for template in "${templates[@]}"; do
+        echo "  - $template"
+    done
+    
+    local agents_created=0
+    local agents_failed=0
+    
+    for template_type in "${templates[@]}"; do
+        echo ""
+        echo -e "${BLUE}--- Creating $template_type agent ---${NC}"
+        read -p "Please enter agent name: " agent_name
 
-    case "$scope_choice" in
-        1) target_dir="$LOCAL_AGENTS_DIR" ;;
-        2) target_dir="$GLOBAL_AGENTS_DIR" ;;
-        *)
-            echo -e "${RED}Error: Invalid selection${NC}"
-            exit 1
-            ;;
-    esac
+        if [[ -z "$agent_name" ]]; then
+            echo -e "${RED}Error: Agent name cannot be empty, skipping this agent${NC}"
+            ((agents_failed++))
+            continue
+        fi
 
+        echo "Please select agent scope:"
+        echo "1. Local project (.claude/agents/)"
+        echo "2. Global (~/.claude/agents/)"
+        read -p "Please select (1-2): " scope_choice
+
+        case "$scope_choice" in
+            1) target_dir="$LOCAL_AGENTS_DIR" ;;
+            2) target_dir="$GLOBAL_AGENTS_DIR" ;;
+            *)
+                echo -e "${RED}Error: Invalid selection, using default local scope${NC}"
+                target_dir="$LOCAL_AGENTS_DIR"
+                ;;
+        esac
+
+        echo -e "${YELLOW}Generating agent configuration...${NC}"
+        if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ $agent_name created successfully!${NC}"
+            echo -e "${BLUE}Configuration file location: $target_dir/${agent_name}.md${NC}"
+            ((agents_created++))
+        else
+            echo -e "${RED}❌ $agent_name creation failed!${NC}"
+            ((agents_failed++))
+        fi
+    done
+    
     echo ""
-    echo -e "${YELLOW}Generating agent configuration...${NC}"
-    generate_agent_config "$template_type" "$agent_name" "$target_dir"
-
-    echo ""
-    echo -e "${GREEN}✅ Agent created successfully!${NC}"
-    echo -e "${BLUE}Configuration file location: $target_dir/${agent_name}.md${NC}"
+    echo -e "${GREEN}========== Creation Complete ==========${NC}"
+    echo -e "${GREEN}Success: $agents_created agents${NC}"
+    if [[ $agents_failed -gt 0 ]]; then
+        echo -e "${RED}Failed: $agents_failed agents${NC}"
+    fi
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Review and customize the generated configuration file"
-    echo "2. Use in Claude Code: @$agent_name or let Claude invoke automatically"
+    echo "1. Review and customize the generated configuration files"
+    echo "2. Use in Claude Code: @agent_name or let Claude invoke automatically"
     echo "3. Adjust agent description and tool permissions as needed"
 }
 
