@@ -56,7 +56,8 @@ list_templates() {
     echo -e "${GREEN}11. markdown_generator${NC} - Markdown document generator"
     echo -e "${GREEN}12. tech-lead-orchestrator${NC} - Technical lead and project orchestrator"
     echo -e "${GREEN}13. project-analyst${NC}   - Project analysis and documentation expert"
-    echo -e "${GREEN}14. custom${NC}           - Custom agent template"
+    echo -e "${GREEN}14. web_researcher${NC}    - Web research specialist"
+    echo -e "${GREEN}15. custom${NC}           - Custom agent template"
 }
 
 generate_agent_config() {
@@ -107,6 +108,9 @@ generate_agent_config() {
             ;;
         "project-analyst")
             generate_project_analyst_template "$config_file" "$agent_name"
+            ;;
+        "web_researcher")
+            generate_web_researcher_template "$config_file" "$agent_name"
             ;;
         "custom")
             generate_custom_template "$config_file" "$agent_name"
@@ -1604,6 +1608,52 @@ You are a senior technical analyst specializing in understanding software projec
 EOF
 }
 
+generate_web_researcher_template() {
+    local config_file="$1"
+    local agent_name="$2"
+
+    cat > "$config_file" << EOF
+---
+name: $agent_name
+description: |
+  Professional web research expert who conducts comprehensive online research, analyzing information from multiple sources to provide accurate and detailed research reports.
+  
+  Examples:
+  - <example>
+    Context: User needs to research a technical topic
+    user: "Research the latest trends in AI development"
+    assistant: "I'll use the web-researcher to conduct comprehensive research on AI trends"
+    <commentary>
+    Will search multiple sources and compile findings into a structured report
+    </commentary>
+  </example>
+  - <example>
+    Context: Market research request
+    user: "What are the top cloud providers in 2024?"
+    assistant: "Let me use the web-researcher to analyze the cloud provider market"
+    <commentary>
+    Will research market data, features, and comparisons
+    </commentary>
+  </example>
+  - <example>
+    Context: Competitive analysis
+    user: "Compare React vs Vue frameworks"
+    assistant: "I'll use the web-researcher to provide a comprehensive framework comparison"
+    <commentary>
+    Will analyze multiple aspects and provide detailed comparison
+    </commentary>
+  </example>
+tools:
+  - str_replace_editor
+  - read_file
+  - create_file
+  - list_files
+  - search_files
+  - bash
+  - mcp
+EOF
+}
+
 generate_custom_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1774,7 +1824,7 @@ interactive_create() {
     echo -e "${YELLOW}Tip: You can enter multiple template numbers (comma-separated) to create multiple agents${NC}"
     echo -e "${YELLOW}Example: 1,2,3 will create code_reviewer, test_generator, and documentation agents${NC}"
     echo ""
-    read -p "Please select template type(s) (1-14, comma-separated for multiple): " template_choices
+    read -p "Please select template type(s) (1-15, comma-separated for multiple): " template_choices
 
     # Parse selected templates
     IFS=',' read -ra CHOICES <<< "$template_choices"
@@ -1796,7 +1846,8 @@ interactive_create() {
             11) templates+=("markdown_generator") ;;
             12) templates+=("tech-lead-orchestrator") ;;
             13) templates+=("project-analyst") ;;
-            14) templates+=("custom") ;;
+            14) templates+=("web_researcher") ;;
+            15) templates+=("custom") ;;
             *)
                 echo -e "${RED}Warning: Invalid choice '$choice', skipped${NC}"
                 ;;
