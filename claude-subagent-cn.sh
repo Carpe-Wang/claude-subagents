@@ -20,14 +20,24 @@ show_help() {
     echo "  -h, --help           显示此帮助信息"
     echo "  -l, --list           列出所有可用的agent模板"
     echo "  -t, --template       指定模板类型"
-    echo "  -n, --name           指定agent名称"
+    echo "  -n, --name           指定agent名称（多个用逗号分隔）"
     echo "  -g, --global         创建全局agent（默认创建本地agent）"
     echo "  -i, --interactive    交互式创建agent"
+    echo "  -b, --batch          批量创建多个不同模板的agent"
+    echo "  -f, --file           从文件读取agent配置"
     echo ""
     echo "示例:"
-    echo "  $0 -i                           # 交互式创建"
-    echo "  $0 -t code_reviewer -n my-reviewer  # 使用模板快速创建"
-    echo "  $0 -t test_generator -n tester -g   # 创建全局agent"
+    echo "  $0 -i                                      # 交互式创建"
+    echo "  $0 -t code_reviewer -n my-reviewer         # 使用模板快速创建"
+    echo "  $0 -t test_generator -n tester -g          # 创建全局agent"
+    echo "  $0 -t code_reviewer -n rev1,rev2,rev3      # 创建多个相同模板的agent"
+    echo "  $0 -b                                      # 批量创建模式"
+    echo "  $0 -f agents.txt                           # 从文件创建agent"
+    echo ""
+    echo "文件格式说明（-f选项）:"
+    echo "  模板名称:agent名称:作用域"
+    echo "  code_reviewer:my-reviewer:local"
+    echo "  test_generator:tester:global"
 }
 
 list_templates() {
@@ -43,7 +53,7 @@ list_templates() {
     echo -e "${GREEN}8. devops_specialist${NC} - DevOps专家"
     echo -e "${GREEN}9. frontend_specialist${NC} - 前端专家"
     echo -e "${GREEN}10. backend_specialist${NC} - 后端专家"
-    echo -e "${GREEN}11. markdown_generator${NC} - Markdown document generator"
+    echo -e "${GREEN}11. markdown_generator${NC} - README.md 生成agent"
     echo -e "${GREEN}12. custom${NC}           - Custom agent template"
 }
 
@@ -100,6 +110,7 @@ generate_agent_config() {
     esac
 
     echo -e "${GREEN}✓ Agent配置文件已创建: $config_file${NC}"
+    return 0
 }
 
 generate_code_reviewer_template() {
@@ -1471,13 +1482,109 @@ Content-Type: application/json
 - Ensure mobile-friendly responsive design
 EOF
 }
+batch_create_agents() {
+    local agents_created=0
+    local agents_failed=0
+    
+    echo -e "${BLUE}🤖 Claude Code Sub-Agent 批量创建器${NC}"
+    echo ""
+    echo "输入agent配置（空行结束）："
+    echo "格式: 模板类型:agent名称[:global]"
+    echo "示例: code_reviewer:my-reviewer:global"
+    echo ""
+    
+    local configs=()
+    while true; do
+        read -p "Agent配置: " config
+        [[ -z "$config" ]] && break
+        configs+=("$config")
+    done
+    
+    if [[ ${#configs[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}未配置任何agent。${NC}"
+        return
+    fi
+    
+    echo ""
+    echo -e "${BLUE}正在创建 ${#configs[@]} 个agents...${NC}"
+    echo ""
+    
+    for config in "${configs[@]}"; do
+        IFS=':' read -r template_type agent_name scope <<< "$config"
+        
+        if [[ -z "$template_type" || -z "$agent_name" ]]; then
+            echo -e "${RED}✗ 无效配置: $config${NC}"
+            ((agents_failed++))
+            continue
+        fi
+        
+        local target_dir="$LOCAL_AGENTS_DIR"
+        if [[ "$scope" == "global" ]]; then
+            target_dir="$GLOBAL_AGENTS_DIR"
+        fi
+        
+        echo -n "创建 $agent_name ($template_type)... "
+        if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+            echo -e "${GREEN}✓${NC}"
+            ((agents_created++))
+        else
+            echo -e "${RED}✗${NC}"
+            ((agents_failed++))
+        fi
+    done
+    
+    echo ""
+    echo -e "${GREEN}汇总: 成功创建 $agents_created 个，失败 $agents_failed 个${NC}"
+}
+
+create_agents_from_file() {
+    local file="$1"
+    local agents_created=0
+    local agents_failed=0
+    
+    if [[ ! -f "$file" ]]; then
+        echo -e "${RED}错误: 文件 '$file' 不存在${NC}"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}从文件创建agents: $file${NC}"
+    echo ""
+    
+    while IFS=':' read -r template_type agent_name scope || [[ -n "$template_type" ]]; do
+        # 跳过空行和注释
+        [[ -z "$template_type" || "$template_type" =~ ^[[:space:]]*# ]] && continue
+        
+        # 去除空格
+        template_type=$(echo "$template_type" | xargs)
+        agent_name=$(echo "$agent_name" | xargs)
+        scope=$(echo "$scope" | xargs)
+        
+        local target_dir="$LOCAL_AGENTS_DIR"
+        if [[ "$scope" == "global" ]]; then
+            target_dir="$GLOBAL_AGENTS_DIR"
+        fi
+        
+        echo -n "创建 $agent_name ($template_type)... "
+        if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+            echo -e "${GREEN}✓${NC}"
+            ((agents_created++))
+        else
+            echo -e "${RED}✗${NC}"
+            ((agents_failed++))
+        fi
+    done < "$file"
+    
+    echo ""
+    echo -e "${GREEN}汇总: 成功创建 $agents_created 个，失败 $agents_failed 个${NC}"
+}
+
 interactive_create() {
     echo -e "${BLUE}🤖 Claude Code Sub-Agent 交互式创建器${NC}"
     echo ""
 
     list_templates
     echo ""
-    read -p "请选择模板类型 (1-11): " template_choice
+    read -p "请选择模板类型 (1-12): " template_choice
 
     case "$template_choice" in
         1) template_type="code_reviewer" ;;
@@ -1490,7 +1597,8 @@ interactive_create() {
         8) template_type="devops_specialist" ;;
         9) template_type="frontend_specialist" ;;
         10) template_type="backend_specialist" ;;
-        11) template_type="custom" ;;
+        11) template_type="markdown_generator" ;;
+        12) template_type="custom" ;;
         *)
             echo -e "${RED}错误: 无效的选择${NC}"
             exit 1
@@ -1536,9 +1644,11 @@ interactive_create() {
 
 main() {
     local template_type=""
-    local agent_name=""
+    local agent_names=""
     local is_global=false
     local is_interactive=false
+    local is_batch=false
+    local config_file=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1555,7 +1665,7 @@ main() {
                 shift 2
                 ;;
             -n|--name)
-                agent_name="$2"
+                agent_names="$2"
                 shift 2
                 ;;
             -g|--global)
@@ -1566,6 +1676,14 @@ main() {
                 is_interactive=true
                 shift
                 ;;
+            -b|--batch)
+                is_batch=true
+                shift
+                ;;
+            -f|--file)
+                config_file="$2"
+                shift 2
+                ;;
             *)
                 echo -e "${RED}错误: 未知参数 '$1'${NC}"
                 show_help
@@ -1574,29 +1692,69 @@ main() {
         esac
     done
 
+    # 处理不同模式
     if [[ "$is_interactive" == true ]]; then
         interactive_create
         exit 0
     fi
+    
+    if [[ "$is_batch" == true ]]; then
+        batch_create_agents
+        exit 0
+    fi
+    
+    if [[ -n "$config_file" ]]; then
+        create_agents_from_file "$config_file"
+        exit 0
+    fi
 
-    if [[ -z "$template_type" || -z "$agent_name" ]]; then
+    # 标准模式
+    if [[ -z "$template_type" || -z "$agent_names" ]]; then
         echo -e "${RED}错误: 缺少必需参数${NC}"
         echo "使用 -i 进入交互模式，或使用 -t 和 -n 指定模板和名称"
         show_help
         exit 1
     fi
 
-    if [[ "$is_global" == true ]]; then
-        target_dir="$GLOBAL_AGENTS_DIR"
-    else
-        target_dir="$LOCAL_AGENTS_DIR"
+    # 处理多个agent名称
+    IFS=',' read -ra NAMES <<< "$agent_names"
+    
+    if [[ ${#NAMES[@]} -gt 1 ]]; then
+        echo -e "${BLUE}使用模板 $template_type 创建 ${#NAMES[@]} 个agents${NC}"
+        echo ""
     fi
-
-    generate_agent_config "$template_type" "$agent_name" "$target_dir"
-
-    echo ""
-    echo -e "${GREEN}✅ Agent创建成功!${NC}"
-    echo -e "${BLUE}配置文件位置: $target_dir/${agent_name}.md${NC}"
+    
+    local agents_created=0
+    for agent_name in "${NAMES[@]}"; do
+        # 去除空格
+        agent_name=$(echo "$agent_name" | xargs)
+        
+        if [[ "$is_global" == true ]]; then
+            target_dir="$GLOBAL_AGENTS_DIR"
+        else
+            target_dir="$LOCAL_AGENTS_DIR"
+        fi
+        
+        if [[ ${#NAMES[@]} -gt 1 ]]; then
+            echo -n "创建 $agent_name... "
+            if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+                echo -e "${GREEN}✓${NC}"
+                ((agents_created++))
+            else
+                echo -e "${RED}✗${NC}"
+            fi
+        else
+            generate_agent_config "$template_type" "$agent_name" "$target_dir"
+            echo ""
+            echo -e "${GREEN}✅ Agent创建成功!${NC}"
+            echo -e "${BLUE}配置文件位置: $target_dir/${agent_name}.md${NC}"
+        fi
+    done
+    
+    if [[ ${#NAMES[@]} -gt 1 ]]; then
+        echo ""
+        echo -e "${GREEN}✅ 成功创建 $agents_created / ${#NAMES[@]} 个agents${NC}"
+    fi
 }
 
 check_dependencies() {

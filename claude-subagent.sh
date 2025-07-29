@@ -20,14 +20,24 @@ show_help() {
     echo "  -h, --help           Show this help message"
     echo "  -l, --list           List all available agent templates"
     echo "  -t, --template       Specify template type"
-    echo "  -n, --name           Specify agent name"
+    echo "  -n, --name           Specify agent name(s) (comma-separated for multiple)"
     echo "  -g, --global         Create global agent (default: local agent)"
     echo "  -i, --interactive    Interactive agent creation"
+    echo "  -b, --batch          Batch create multiple agents with different templates"
+    echo "  -f, --file           Read agent configurations from file"
     echo ""
     echo "Examples:"
-    echo "  $0 -i                           # Interactive creation"
-    echo "  $0 -t code_reviewer -n my-reviewer  # Quick creation with template"
-    echo "  $0 -t test_generator -n tester -g   # Create global agent"
+    echo "  $0 -i                                      # Interactive creation"
+    echo "  $0 -t code_reviewer -n my-reviewer         # Quick creation with template"
+    echo "  $0 -t test_generator -n tester -g          # Create global agent"
+    echo "  $0 -t code_reviewer -n rev1,rev2,rev3      # Create multiple agents with same template"
+    echo "  $0 -b                                      # Batch creation mode"
+    echo "  $0 -f agents.txt                           # Create agents from file"
+    echo ""
+    echo "File format for -f option:"
+    echo "  template_name:agent_name:scope"
+    echo "  code_reviewer:my-reviewer:local"
+    echo "  test_generator:tester:global"
 }
 
 list_templates() {
@@ -100,6 +110,7 @@ generate_agent_config() {
     esac
 
     echo -e "${GREEN}✓ Agent configuration file created: $config_file${NC}"
+    return 0
 }
 
 generate_code_reviewer_template() {
@@ -1473,13 +1484,109 @@ Please modify the above template content according to your specific requirements
 EOF
 }
 
+batch_create_agents() {
+    local agents_created=0
+    local agents_failed=0
+    
+    echo -e "${BLUE}🤖 Claude Code Sub-Agent Batch Creator${NC}"
+    echo ""
+    echo "Enter agent configurations (empty line to finish):"
+    echo "Format: template_type:agent_name[:global]"
+    echo "Example: code_reviewer:my-reviewer:global"
+    echo ""
+    
+    local configs=()
+    while true; do
+        read -p "Agent config: " config
+        [[ -z "$config" ]] && break
+        configs+=("$config")
+    done
+    
+    if [[ ${#configs[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}No agents configured.${NC}"
+        return
+    fi
+    
+    echo ""
+    echo -e "${BLUE}Creating ${#configs[@]} agents...${NC}"
+    echo ""
+    
+    for config in "${configs[@]}"; do
+        IFS=':' read -r template_type agent_name scope <<< "$config"
+        
+        if [[ -z "$template_type" || -z "$agent_name" ]]; then
+            echo -e "${RED}✗ Invalid config: $config${NC}"
+            ((agents_failed++))
+            continue
+        fi
+        
+        local target_dir="$LOCAL_AGENTS_DIR"
+        if [[ "$scope" == "global" ]]; then
+            target_dir="$GLOBAL_AGENTS_DIR"
+        fi
+        
+        echo -n "Creating $agent_name ($template_type)... "
+        if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+            echo -e "${GREEN}✓${NC}"
+            ((agents_created++))
+        else
+            echo -e "${RED}✗${NC}"
+            ((agents_failed++))
+        fi
+    done
+    
+    echo ""
+    echo -e "${GREEN}Summary: $agents_created created, $agents_failed failed${NC}"
+}
+
+create_agents_from_file() {
+    local file="$1"
+    local agents_created=0
+    local agents_failed=0
+    
+    if [[ ! -f "$file" ]]; then
+        echo -e "${RED}Error: File '$file' not found${NC}"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}Creating agents from file: $file${NC}"
+    echo ""
+    
+    while IFS=':' read -r template_type agent_name scope || [[ -n "$template_type" ]]; do
+        # Skip empty lines and comments
+        [[ -z "$template_type" || "$template_type" =~ ^[[:space:]]*# ]] && continue
+        
+        # Trim whitespace
+        template_type=$(echo "$template_type" | xargs)
+        agent_name=$(echo "$agent_name" | xargs)
+        scope=$(echo "$scope" | xargs)
+        
+        local target_dir="$LOCAL_AGENTS_DIR"
+        if [[ "$scope" == "global" ]]; then
+            target_dir="$GLOBAL_AGENTS_DIR"
+        fi
+        
+        echo -n "Creating $agent_name ($template_type)... "
+        if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+            echo -e "${GREEN}✓${NC}"
+            ((agents_created++))
+        else
+            echo -e "${RED}✗${NC}"
+            ((agents_failed++))
+        fi
+    done < "$file"
+    
+    echo ""
+    echo -e "${GREEN}Summary: $agents_created created, $agents_failed failed${NC}"
+}
+
 interactive_create() {
     echo -e "${BLUE}🤖 Claude Code Sub-Agent Interactive Creator${NC}"
     echo ""
 
     list_templates
     echo ""
-    read -p "Please select template type (1-11): " template_choice
+    read -p "Please select template type (1-12): " template_choice
 
     case "$template_choice" in
         1) template_type="code_reviewer" ;;
@@ -1539,9 +1646,11 @@ interactive_create() {
 
 main() {
     local template_type=""
-    local agent_name=""
+    local agent_names=""
     local is_global=false
     local is_interactive=false
+    local is_batch=false
+    local config_file=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1558,7 +1667,7 @@ main() {
                 shift 2
                 ;;
             -n|--name)
-                agent_name="$2"
+                agent_names="$2"
                 shift 2
                 ;;
             -g|--global)
@@ -1569,6 +1678,14 @@ main() {
                 is_interactive=true
                 shift
                 ;;
+            -b|--batch)
+                is_batch=true
+                shift
+                ;;
+            -f|--file)
+                config_file="$2"
+                shift 2
+                ;;
             *)
                 echo -e "${RED}Error: Unknown parameter '$1'${NC}"
                 show_help
@@ -1577,29 +1694,69 @@ main() {
         esac
     done
 
+    # Handle different modes
     if [[ "$is_interactive" == true ]]; then
         interactive_create
         exit 0
     fi
+    
+    if [[ "$is_batch" == true ]]; then
+        batch_create_agents
+        exit 0
+    fi
+    
+    if [[ -n "$config_file" ]]; then
+        create_agents_from_file "$config_file"
+        exit 0
+    fi
 
-    if [[ -z "$template_type" || -z "$agent_name" ]]; then
+    # Standard mode
+    if [[ -z "$template_type" || -z "$agent_names" ]]; then
         echo -e "${RED}Error: Missing required parameters${NC}"
         echo "Use -i for interactive mode, or use -t and -n to specify template and name"
         show_help
         exit 1
     fi
 
-    if [[ "$is_global" == true ]]; then
-        target_dir="$GLOBAL_AGENTS_DIR"
-    else
-        target_dir="$LOCAL_AGENTS_DIR"
+    # Handle multiple agent names
+    IFS=',' read -ra NAMES <<< "$agent_names"
+    
+    if [[ ${#NAMES[@]} -gt 1 ]]; then
+        echo -e "${BLUE}Creating ${#NAMES[@]} agents with template: $template_type${NC}"
+        echo ""
     fi
-
-    generate_agent_config "$template_type" "$agent_name" "$target_dir"
-
-    echo ""
-    echo -e "${GREEN}✅ Agent created successfully!${NC}"
-    echo -e "${BLUE}Configuration file location: $target_dir/${agent_name}.md${NC}"
+    
+    local agents_created=0
+    for agent_name in "${NAMES[@]}"; do
+        # Trim whitespace
+        agent_name=$(echo "$agent_name" | xargs)
+        
+        if [[ "$is_global" == true ]]; then
+            target_dir="$GLOBAL_AGENTS_DIR"
+        else
+            target_dir="$LOCAL_AGENTS_DIR"
+        fi
+        
+        if [[ ${#NAMES[@]} -gt 1 ]]; then
+            echo -n "Creating $agent_name... "
+            if generate_agent_config "$template_type" "$agent_name" "$target_dir" >/dev/null 2>&1; then
+                echo -e "${GREEN}✓${NC}"
+                ((agents_created++))
+            else
+                echo -e "${RED}✗${NC}"
+            fi
+        else
+            generate_agent_config "$template_type" "$agent_name" "$target_dir"
+            echo ""
+            echo -e "${GREEN}✅ Agent created successfully!${NC}"
+            echo -e "${BLUE}Configuration file location: $target_dir/${agent_name}.md${NC}"
+        fi
+    done
+    
+    if [[ ${#NAMES[@]} -gt 1 ]]; then
+        echo ""
+        echo -e "${GREEN}✅ Created $agents_created out of ${#NAMES[@]} agents${NC}"
+    fi
 }
 
 check_dependencies() {
