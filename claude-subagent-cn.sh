@@ -1,22 +1,16 @@
 #!/bin/bash
 
-# Claude Code Sub-Agent 脚手架生成器
-# 用于快速创建标准化的sub-agent配置文件
-
 set -euo pipefail
 
-# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 配置目录
 GLOBAL_AGENTS_DIR="$HOME/.claude/agents"
 LOCAL_AGENTS_DIR=".claude/agents"
 
-# 显示帮助信息
 show_help() {
     echo -e "${BLUE}Claude Code Sub-Agent 脚手架生成器${NC}"
     echo ""
@@ -36,7 +30,6 @@ show_help() {
     echo "  $0 -t test_generator -n tester -g   # 创建全局agent"
 }
 
-# 列出可用模板
 list_templates() {
     echo -e "${BLUE}可用的Agent模板:${NC}"
     echo ""
@@ -54,13 +47,11 @@ list_templates() {
     echo -e "${GREEN}12. custom${NC}           - Custom agent template"
 }
 
-# 生成agent配置文件
 generate_agent_config() {
     local template_type="$1"
     local agent_name="$2"
     local target_dir="$3"
 
-    # 创建目录
     mkdir -p "$target_dir"
 
     local config_file="$target_dir/${agent_name}.md"
@@ -111,7 +102,6 @@ generate_agent_config() {
     echo -e "${GREEN}✓ Agent配置文件已创建: $config_file${NC}"
 }
 
-# 代码审查专家模板
 generate_code_reviewer_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -191,7 +181,6 @@ tools:
 EOF
 }
 
-# 测试生成专家模板
 generate_test_generator_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -278,7 +267,6 @@ describe('功能模块', () => {
 EOF
 }
 
-# 文档专家模板
 generate_documentation_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -350,7 +338,6 @@ tools:
 EOF
 }
 
-# 安全分析专家模板
 generate_security_analyst_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -439,7 +426,6 @@ tools:
 EOF
 }
 
-# 性能优化专家模板
 generate_performance_optimizer_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -546,7 +532,6 @@ tools:
 EOF
 }
 
-# API设计专家模板
 generate_api_designer_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -653,7 +638,6 @@ paths:
 EOF
 }
 
-# 数据库专家模板
 generate_database_expert_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -776,7 +760,6 @@ CREATE TABLE users (
 EOF
 }
 
-# DevOps专家模板
 generate_devops_specialist_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -905,7 +888,6 @@ resource "aws_instance" "web" {
 EOF
 }
 
-# 前端专家模板
 generate_frontend_specialist_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1046,7 +1028,6 @@ export default Button;
 EOF
 }
 
-# 后端专家模板
 generate_backend_specialist_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1185,7 +1166,6 @@ public class UserController {
 EOF
 }
 
-# 自定义模板
 generate_custom_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1491,12 +1471,10 @@ Content-Type: application/json
 - Ensure mobile-friendly responsive design
 EOF
 }
-# 交互式创建agent
 interactive_create() {
     echo -e "${BLUE}🤖 Claude Code Sub-Agent 交互式创建器${NC}"
     echo ""
 
-    # 选择模板
     list_templates
     echo ""
     read -p "请选择模板类型 (1-11): " template_choice
@@ -1519,7 +1497,6 @@ interactive_create() {
             ;;
     esac
 
-    # 输入agent名称
     echo ""
     read -p "请输入Agent名称: " agent_name
 
@@ -1528,7 +1505,6 @@ interactive_create() {
         exit 1
     fi
 
-    # 选择作用域
     echo ""
     echo "请选择Agent作用域:"
     echo "1. 本地项目 (.claude/agents/)"
@@ -1544,12 +1520,10 @@ interactive_create() {
             ;;
     esac
 
-    # 生成配置
     echo ""
     echo -e "${YELLOW}正在生成Agent配置...${NC}"
     generate_agent_config "$template_type" "$agent_name" "$target_dir"
 
-    # 成功信息
     echo ""
     echo -e "${GREEN}✅ Agent创建成功!${NC}"
     echo -e "${BLUE}配置文件位置: $target_dir/${agent_name}.md${NC}"
@@ -1560,14 +1534,12 @@ interactive_create() {
     echo "3. 根据需要调整agent的描述和工具权限"
 }
 
-# 主函数
 main() {
     local template_type=""
     local agent_name=""
     local is_global=false
     local is_interactive=false
 
-    # 解析命令行参数
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
@@ -1602,13 +1574,11 @@ main() {
         esac
     done
 
-    # 交互式模式
     if [[ "$is_interactive" == true ]]; then
         interactive_create
         exit 0
     fi
 
-    # 检查必需参数
     if [[ -z "$template_type" || -z "$agent_name" ]]; then
         echo -e "${RED}错误: 缺少必需参数${NC}"
         echo "使用 -i 进入交互模式，或使用 -t 和 -n 指定模板和名称"

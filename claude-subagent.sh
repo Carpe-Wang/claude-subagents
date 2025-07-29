@@ -1,22 +1,16 @@
 #!/bin/bash
 
-# Claude Code Sub-Agent Scaffold Generator
-# Quickly create standardized sub-agent configuration files
-
 set -euo pipefail
 
-# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration directories
 GLOBAL_AGENTS_DIR="$HOME/.claude/agents"
 LOCAL_AGENTS_DIR=".claude/agents"
 
-# Display help information
 show_help() {
     echo -e "${BLUE}Claude Code Sub-Agent Scaffold Generator${NC}"
     echo ""
@@ -36,7 +30,6 @@ show_help() {
     echo "  $0 -t test_generator -n tester -g   # Create global agent"
 }
 
-# List available templates
 list_templates() {
     echo -e "${BLUE}Available Agent Templates:${NC}"
     echo ""
@@ -54,13 +47,11 @@ list_templates() {
     echo -e "${GREEN}12. custom${NC}           - Custom agent template"
 }
 
-# Generate agent configuration file
 generate_agent_config() {
     local template_type="$1"
     local agent_name="$2"
     local target_dir="$3"
 
-    # Create directory
     mkdir -p "$target_dir"
 
     local config_file="$target_dir/${agent_name}.md"
@@ -111,7 +102,6 @@ generate_agent_config() {
     echo -e "${GREEN}✓ Agent configuration file created: $config_file${NC}"
 }
 
-# Code reviewer template
 generate_code_reviewer_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -191,7 +181,6 @@ Please provide review report in the following structure:
 EOF
 }
 
-# Test generator template
 generate_test_generator_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -278,7 +267,6 @@ describe('Feature Module', () => {
 EOF
 }
 
-# Documentation template
 generate_documentation_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -350,7 +338,6 @@ You are a professional technical documentation engineer who excels at creating c
 EOF
 }
 
-# Security analyst template
 generate_security_analyst_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -439,7 +426,6 @@ You are a professional cybersecurity expert specializing in identifying, analyzi
 EOF
 }
 
-# Performance optimizer template
 generate_performance_optimizer_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -546,7 +532,6 @@ You are a professional performance optimization engineer specializing in identif
 EOF
 }
 
-# API designer template
 generate_api_designer_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -653,7 +638,6 @@ paths:
 EOF
 }
 
-# Database expert template
 generate_database_expert_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -776,7 +760,6 @@ CREATE TABLE users (
 EOF
 }
 
-# DevOps specialist template
 generate_devops_specialist_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -905,7 +888,6 @@ resource "aws_instance" "web" {
 EOF
 }
 
-# Frontend specialist template
 generate_frontend_specialist_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1046,7 +1028,6 @@ export default Button;
 EOF
 }
 
-# Backend specialist template
 generate_backend_specialist_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1185,7 +1166,6 @@ public class UserController {
 EOF
 }
 
-# Markdown generator template
 generate_markdown_generator_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1428,7 +1408,6 @@ Content-Type: application/json
 EOF
 }
 
-# Custom template
 generate_custom_template() {
     local config_file="$1"
     local agent_name="$2"
@@ -1494,12 +1473,10 @@ Please modify the above template content according to your specific requirements
 EOF
 }
 
-# Interactive agent creation
 interactive_create() {
     echo -e "${BLUE}🤖 Claude Code Sub-Agent Interactive Creator${NC}"
     echo ""
 
-    # Select template
     list_templates
     echo ""
     read -p "Please select template type (1-11): " template_choice
@@ -1523,7 +1500,6 @@ interactive_create() {
             ;;
     esac
 
-    # Input agent name
     echo ""
     read -p "Please enter agent name: " agent_name
 
@@ -1532,7 +1508,6 @@ interactive_create() {
         exit 1
     fi
 
-    # Select scope
     echo ""
     echo "Please select agent scope:"
     echo "1. Local project (.claude/agents/)"
@@ -1548,12 +1523,10 @@ interactive_create() {
             ;;
     esac
 
-    # Generate configuration
     echo ""
     echo -e "${YELLOW}Generating agent configuration...${NC}"
     generate_agent_config "$template_type" "$agent_name" "$target_dir"
 
-    # Success message
     echo ""
     echo -e "${GREEN}✅ Agent created successfully!${NC}"
     echo -e "${BLUE}Configuration file location: $target_dir/${agent_name}.md${NC}"
@@ -1564,14 +1537,12 @@ interactive_create() {
     echo "3. Adjust agent description and tool permissions as needed"
 }
 
-# Main function
 main() {
     local template_type=""
     local agent_name=""
     local is_global=false
     local is_interactive=false
 
-    # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
@@ -1606,13 +1577,11 @@ main() {
         esac
     done
 
-    # Interactive mode
     if [[ "$is_interactive" == true ]]; then
         interactive_create
         exit 0
     fi
 
-    # Check required parameters
     if [[ -z "$template_type" || -z "$agent_name" ]]; then
         echo -e "${RED}Error: Missing required parameters${NC}"
         echo "Use -i for interactive mode, or use -t and -n to specify template and name"
@@ -1620,7 +1589,6 @@ main() {
         exit 1
     fi
 
-    # Determine target directory
     if [[ "$is_global" == true ]]; then
         target_dir="$GLOBAL_AGENTS_DIR"
     else
@@ -1634,7 +1602,6 @@ main() {
     echo -e "${BLUE}Configuration file location: $target_dir/${agent_name}.md${NC}"
 }
 
-# Check dependencies
 check_dependencies() {
     if ! command -v mkdir &> /dev/null; then
         echo -e "${RED}Error: mkdir command not available${NC}"
