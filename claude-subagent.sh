@@ -1436,7 +1436,7 @@ generate_backend_specialist_template() {
 
     cat > "$config_file" << 'EOF'
 ---
-name: $agent_name
+name: AGENT_NAME_PLACEHOLDER
 description: Use this agent when you need to design, implement, or optimize server-side applications and architectures. This includes API development, database design, microservices architecture, performance optimization, and backend system design. The agent proactively suggests architectural improvements and best practices for scalable backend solutions.
 tools: Bash, Glob, Grep, LS, Read, Edit, MultiEdit, Write, NotebookRead, NotebookEdit, WebFetch, TodoWrite, WebSearch
 ---
@@ -1832,6 +1832,8 @@ LIMIT 20;
 - Monitor performance metrics
 - Plan for horizontal scaling
 EOF
+    # Replace placeholder with actual agent name
+    sed -i.bak "s/AGENT_NAME_PLACEHOLDER/$agent_name/g" "$config_file" && rm "$config_file.bak"
 }
 
 generate_refactoring_expert_template() {
